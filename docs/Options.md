@@ -8,7 +8,6 @@
 - [version](#version)
 - [upgrade](#upgrade)
 - [testgrid](#testgrid)
-- [other](#other)
 
 
 
@@ -29,6 +28,12 @@ These options are required to run osde2e.
 - CleanRuns is the number of times the test-version is run before skipping.
 
 - Type: `int`
+
+### `DRY_RUN`
+
+- DryRun lets you run osde2e all the way up to the e2e tests then skips them.
+
+- Type: `bool`
 
 ### `GINKGO_SKIP`
 
@@ -127,6 +132,8 @@ This is highly useful when trying to debug things locally. :)
 ### `TARGET_STREAM`
 
 - TargetStream lets you select a specific release stream from Cincinnati or the Release Controller to install.
+For stage and prod, this will always refer to Cincinnati. For int, this will refer to Cincinnati for upgrades and
+release controller for regular installs.
 
 - Type: `string`
 
@@ -177,14 +184,3 @@ These options configure reporting test results to TestGrid.
 - TestGridServiceAccount is a Base64 encoded Google Cloud Service Account used to access the TestGridBucket.
 
 - Type: `[]byte`
-
-## other
-Various additional options for configuring osde2e.
-
-### `USE_PROD`
-
-- UseProd sends requests to production OSD.
-
-Deprecated: Use OSD_ENV=prod instead.
-
-- Type: `bool`

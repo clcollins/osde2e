@@ -6,23 +6,26 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/Masterminds/semver"
 	"github.com/openshift/osde2e/pkg/config"
+	"github.com/openshift/osde2e/pkg/osd"
 )
 
 const (
 	// format string for release stream latest from release controller
 	latestReleaseControllerURLFmt = "https://openshift-release.svc.ci.openshift.org/api/v1/releasestream/%s/latest"
 	// format string for Cincinnati releases
-	cincinnatiURLFmt = "https://api%s.openshift.com/api/upgrades_info/v1/graph?channel=%s"
+	cincinnatiURLFmt = "%s/api/upgrades_info/v1/graph?channel=%s"
 )
 
 // LatestRelease retrieves latest release information for given releaseStream. Will use Cincinnati for stage/prod.
-func LatestRelease(cfg *config.Config, releaseStream string) (name, pullSpec string, err error) {
+func LatestRelease(cfg *config.Config, releaseStream string, use_release_controller_for_int bool) (name, pullSpec string, err error) {
 	var resp *http.Response
 	var data []byte
-	if cfg.OSDEnv == "int" {
+	if cfg.OSDEnv == "int" && use_release_controller_for_int {
+		log.Printf("Using the release controller.")
 		latestURL := fmt.Sprintf(latestReleaseControllerURLFmt, releaseStream)
 		resp, err = http.Get(latestURL)
 		if err != nil {
@@ -38,21 +41,16 @@ func LatestRelease(cfg *config.Config, releaseStream string) (name, pullSpec str
 
 		latest := latestAccepted{}
 		if err = json.Unmarshal(data, &latest); err != nil {
-			err = fmt.Errorf("error decoding body of '%s': %v", data, err)
+			return "", "", fmt.Errorf("error decoding body of '%s': %v", data, err)
 		}
 
-		return latest.Name, latest.PullSpec, nil
+		return ensureReleasePrefix(latest.Name), latest.PullSpec, nil
 	}
+
+	log.Printf("Using Cincinnati.")
 
 	// If stage or prod, use Cincinnati instead of the release controller
-	stage := ""
-
-	// Add in stage to the URL if necessary
-	if cfg.OSDEnv == "stage" {
-		stage = ".stage"
-	}
-
-	cincinnatiFormattedURL := fmt.Sprintf(cincinnatiURLFmt, stage, releaseStream)
+	cincinnatiFormattedURL := fmt.Sprintf(cincinnatiURLFmt, osd.Environments.Choose(cfg.OSDEnv), releaseStream)
 
 	var req *http.Request
 
@@ -61,15 +59,13 @@ func LatestRelease(cfg *config.Config, releaseStream string) (name, pullSpec str
 	req.Header.Set("Accept", "application/json")
 
 	if err != nil {
-		err = fmt.Errorf("failed to create Cincinnati request for URL '%s': %v", cincinnatiFormattedURL, err)
-		return
+		return "", "", fmt.Errorf("failed to create Cincinnati request for URL '%s': %v", cincinnatiFormattedURL, err)
 	}
 
 	resp, err = (&http.Client{}).Do(req)
 
 	if err != nil {
-		err = fmt.Errorf("Request failed for URL '%s': %v", cincinnatiFormattedURL, err)
-		return
+		return "", "", fmt.Errorf("Request failed for URL '%s': %v", cincinnatiFormattedURL, err)
 	}
 
 	data, err = ioutil.ReadAll(resp.Body)
@@ -84,7 +80,7 @@ func LatestRelease(cfg *config.Config, releaseStream string) (name, pullSpec str
 	var latestCincinnatiRelease cincinnatiRelease
 
 	if err = json.Unmarshal(data, &cincinnatiReleases); err != nil {
-		err = fmt.Errorf("error decoding body of '%s': %v", data, err)
+		return "", "", fmt.Errorf("error decoding body of '%s': %v", data, err)
 	}
 
 	for _, release := range cincinnatiReleases.Nodes {
@@ -101,7 +97,15 @@ func LatestRelease(cfg *config.Config, releaseStream string) (name, pullSpec str
 		}
 	}
 
-	return latestCincinnatiRelease.Version, latestCincinnatiRelease.Payload, nil
+	return ensureReleasePrefix(latestCincinnatiRelease.Version), latestCincinnatiRelease.Payload, nil
+}
+
+func ensureReleasePrefix(release string) string {
+	if len(release) > 0 && !strings.Contains(release, "openshift-v") {
+		log.Printf("Version %s didn't have prefix. Adding....", release)
+		release = "openshift-v" + release
+	}
+	return release
 }
 
 // latestAccepted information from release controller.

@@ -4,6 +4,7 @@ package upgrade
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -75,7 +76,7 @@ func TriggerUpgrade(h *helper.H, cfg *config.Config) (*configv1.ClusterVersion, 
 
 	// set requested upgrade targets
 	cVersion.Spec.DesiredUpdate = &configv1.Update{
-		Version: cfg.UpgradeReleaseName,
+		Version: strings.Replace(cfg.UpgradeReleaseName, "openshift-v", "", -1),
 		Image:   cfg.UpgradeImage,
 		Force:   true,
 	}
@@ -86,7 +87,7 @@ func TriggerUpgrade(h *helper.H, cfg *config.Config) (*configv1.ClusterVersion, 
 
 	// wait for update acknowledgement
 	updateGeneration := updatedCV.Generation
-	if err = wait.PollImmediate(5*time.Second, 2*time.Minute, func() (bool, error) {
+	if err = wait.PollImmediate(15*time.Second, 5*time.Minute, func() (bool, error) {
 		if cVersion, err = cfgClient.ConfigV1().ClusterVersions().Get(ClusterVersionName, getOpts); err != nil {
 			return false, err
 		}

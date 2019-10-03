@@ -30,6 +30,10 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	err := setupCluster(cfg)
 	Expect(err).ShouldNot(HaveOccurred(), "failed to setup cluster for testing")
 
+	// Give the cluster some breathing room.
+	log.Println("OSD cluster installed. Sleeping for 300s.")
+	time.Sleep(300 * time.Second)
+
 	// upgrade cluster if requested
 	if cfg.UpgradeImage != "" || cfg.UpgradeReleaseStream != "" {
 		err = upgrade.RunUpgrade(cfg)
@@ -72,7 +76,7 @@ var _ = ginkgo.AfterSuite(func() {
 		} else {
 			log.Printf("Sleeping for %d minutes before destroying cluster '%s'", cfg.AfterTestClusterWait/time.Minute, cfg.ClusterID)
 			startTime := time.Now()
-			for time.Now().Sub(startTime) < cfg.AfterTestClusterWait {
+			for time.Since(startTime) < cfg.AfterTestClusterWait {
 				time.Sleep(1 * time.Minute)
 				log.Print(".")
 			}

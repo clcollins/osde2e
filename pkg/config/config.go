@@ -24,6 +24,9 @@ type Config struct {
 	// Suffix is used at the end of test names to identify them.
 	Suffix string `env:"SUFFIX" sect:"tests"`
 
+	// DryRun lets you run osde2e all the way up to the e2e tests then skips them.
+	DryRun bool `env:"DRY_RUN" sect:"tests"`
+
 	// UHCToken is used to authenticate with UHC.
 	UHCToken string `env:"UHC_TOKEN" sect:"required"`
 
@@ -42,7 +45,9 @@ type Config struct {
 	// MinorTarget is the minor version to target. If specified, it is used in version selection.
 	MinorTarget int64 `env:"MINOR_TARGET" sect:"version"`
 
-	//TargetStream lets you select a specific release stream from Cincinnati or the Release Controller to install.
+	// TargetStream lets you select a specific release stream from Cincinnati or the Release Controller to install.
+	// For stage and prod, this will always refer to Cincinnati. For int, this will refer to Cincinnati for upgrades and
+	// release controller for regular installs.
 	TargetStream string `env:"TARGET_STREAM" sect:"version"`
 
 	// AfterTestClusterWait is how long to keep a cluster around after tests have run.
@@ -59,11 +64,6 @@ type Config struct {
 
 	// TestGridServiceAccount is a Base64 encoded Google Cloud Service Account used to access the TestGridBucket.
 	TestGridServiceAccount []byte `env:"TESTGRID_SERVICE_ACCOUNT" sect:"testgrid"`
-
-	// UseProd sends requests to production OSD.
-	//
-	// Deprecated: Use OSD_ENV=prod instead.
-	UseProd bool `env:"USE_PROD"`
 
 	// MultiAZ deploys a cluster across multiple availability zones.
 	MultiAZ bool `env:"MULTI_AZ" sect:"cluster"`
